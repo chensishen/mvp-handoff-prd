@@ -1,0 +1,2 @@
+来源ID,目标ID,需求ID,GAP_ID,MVP证据ID,处置,优先级,AC_ID,Test_ID,任务或代码链接,缺陷ID,验收证据,目标Release,UAT签署,状态,Owner
+SRC-001,OBJ-001,FR-001,GAP-001,EVD-001,补全,Must,AC-FR-001-01,TEST-001,,,,R1,,草稿,

@@ -1,0 +1,4 @@
+interface:
+  display_name: "MVP 交接型 PRD"
+  short_description: "从现有 MVP 生成可开发、可测试、可交接的 PRD"
+  default_prompt: "使用 $mvp-handoff-prd 审计当前 MVP，并生成可交给技术岗位继续完成的 PRD 交接包。"
