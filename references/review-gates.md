@@ -22,7 +22,9 @@
 - 目标用户、问题、目标和成功口径已确认；
 - In/Out/Later 与 Must/Should/Could/Won't 已确认；
 - MVP 的保留/修改/移除决策已记录；
+- 目标主流程由具名产品/业务 Owner 确认，版本、日期和证据可追溯；
 - 外部项目的承诺/验收边界或内部项目的 Owner/运营边界已明确。
+- 客户承诺与核心业务规则已通过授权、来源、一致性、影响和有效期校验。
 
 阻塞：核心业务规则、付费/合同承诺、数据权属或最终决策人未明确。
 
@@ -34,11 +36,19 @@
 - 流程、状态、权限、接口、数据、异常和必要 NFR 已覆盖；
 - 依赖、迁移、第三方、环境与专项风险有 Owner；
 - 技术负责人确认可估算；QA 确认可设计测试；
+- C 岗实施上下文已给出可定位代码路径、现有模式、切片边界/依赖和权威验证命令；
+- 技术估算基于具名实施者、范围/代码基线、任务与依赖证据；风险接受由有权 Owner 完成且有期限和控制；
 - 未决项均有 Owner/日期/阻塞级别，且无核心阻塞。
 
-阻塞：Must 无 AC；接口/数据/权限存在相互矛盾；重大安全/合规问题未决；把未经实施者确认的工期当承诺。
+阻塞：Must 无 AC；任一关键决策为 `UNVERIFIED / INVALID`；接口/数据/权限存在相互矛盾；重大安全/合规问题未决；把未经实施者确认的工期当承诺。
+
+## CP-A–D 写作检查点
+
+`CP-A Evidence Frozen → CP-B Main Flow Approved → CP-C Rules Decided → CP-D Spec Compiled` 是 G1–G3 内部的阶段证据，不替代 G1–G3。它们分别防止 AI 在归集阶段脑补、篡改主流程、替业务决策异常规则和未经确认就生成正式 PRD。
 
 ## G4 可进入验收（Acceptance Ready）
+
+包级校验使用 `--gate acceptance-ready`，并要求清单中的 `G4_ACCEPTANCE_READY / BUILD_ID / TEST_ENV_ID / BLOCKING_DEFECT_IDS / UAT_OWNER` 与 Must 需求验收证据完整。
 
 通过条件：
 
@@ -49,6 +59,8 @@
 - UAT 范围、验收人、时间和证据格式明确。
 
 ## G5 交接完成（Handoff Accepted）
+
+包级校验使用 `--gate handoff-accepted`，并要求 `G5_HANDOFF_ACCEPTED / UAT_STATUS / OAT_STATUS / RELEASE_STATUS / HANDOFF_BLOCKING_IDS` 以及三方正式签署完整。
 
 通过条件：
 
@@ -63,3 +75,7 @@
 |---|---|---|---|---|---|---|---|
 
 任何口头结论应在会后回填。改变结论时保留旧版本和变更原因。
+
+## 专家团证据
+
+HIGH_ASSURANCE 或 L2/L3 必须有专家团记录；其他触发条件由 `--expert-panel` 显式启用。门禁记录必须包含：共同证据包版本、产品/技术/QA 独立结论、未关闭 P0、P1 Owner/期限、分歧及裁决人、正文与追踪矩阵回填状态。专家人数、平均分或多数票不能替代这些证据；任一 P0 未关闭时结论必须为 `NOT READY`。

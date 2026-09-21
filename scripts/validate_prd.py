@@ -39,10 +39,23 @@ REQUIRED_CONCEPTS = {
 
 HEADING = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
 AC_ID = re.compile(r"\bAC-(FR-[A-Z0-9-]+)-\d+\b")
+AC_DEFINITION = re.compile(r"^\s*(AC-(FR-[A-Z0-9-]+)-\d+)\s*$", re.MULTILINE)
 VAGUE = re.compile(r"体验良好|体验流畅|响应快|尽量快|安全可靠|稳定可靠|支持常见|兼容主流|实时同步|正常运行")
 PLACEHOLDER = re.compile(r"<(?![!/?])[^>\n]+>|\[TODO\]|\bTBD\b|【待确认】")
 UNRESOLVED = re.compile(r"待确认|未决|待指定|未提供|无法验证|未知")
-GATE_FIELD = re.compile(r"^(PRD_STATUS|G1_BASELINE|G2_SCOPE|G3_DEVELOPMENT_READY|BLOCKING_IDS)\s*:\s*(.*?)\s*$", re.MULTILINE)
+GATE_FIELD = re.compile(
+    r"^(PRD_STATUS|DELIVERY_MODE|RISK_LEVEL|BASELINE_ID|G1_BASELINE|G2_SCOPE|G3_DEVELOPMENT_READY|MAIN_FLOW_STATUS|MAIN_FLOW_OWNER|DECISION_ASSURANCE|BLOCKING_IDS)\s*:\s*(.*?)\s*$",
+    re.MULTILINE,
+)
+
+DECISION_TYPES = {
+    "CUSTOMER_COMMITMENT",
+    "CORE_BUSINESS_RULE",
+    "TECH_ESTIMATE",
+    "RISK_ACCEPTANCE",
+}
+
+UNACCEPTABLE_VALUE = re.compile(r"^(?:TBD|NONE|N/?A|-|待确认|未提供|未知|无法验证)?$", re.IGNORECASE)
 
 
 def line_number(text: str, offset: int) -> int:
@@ -119,10 +132,15 @@ def lint(text: str, gate: str | None = None, traceability: Path | None = None) -
                 findings.append(Finding("error", "unresolved_must_requirement", f"Must 需求 {req_id} 仍含未决内容", line))
 
     defined_reqs = set(seen)
-    for ac in AC_ID.finditer(text):
-        req_id = ac.group(1)
+    defined_acs: set[str] = set()
+    for ac in AC_DEFINITION.finditer(text):
+        ac_id = ac.group(1)
+        req_id = ac.group(2)
+        if ac_id in defined_acs:
+            findings.append(Finding("error", "duplicate_ac", f"验收标准 {ac_id} 被重复定义", line_number(text, ac.start())))
+        defined_acs.add(ac_id)
         if req_id not in defined_reqs:
-            findings.append(Finding("warning", "orphan_ac", f"{ac.group(0)} 指向未定义的 {req_id}", line_number(text, ac.start())))
+            findings.append(Finding("warning", "orphan_ac", f"{ac_id} 指向未定义的 {req_id}", line_number(text, ac.start())))
 
     for match in VAGUE.finditer(text):
         line_start = text.rfind("\n", 0, match.start()) + 1
@@ -153,7 +171,7 @@ def lint(text: str, gate: str | None = None, traceability: Path | None = None) -
         findings.append(Finding("warning", "missing_traceability", "未发现需求—AC—测试追踪说明"))
 
     if gate == "development-ready":
-        enforce_development_gate(text, findings, must_reqs, traceability)
+        enforce_development_gate(text, findings, must_reqs, defined_acs, traceability)
     return findings
 
 
@@ -164,7 +182,115 @@ def iter_lines(text: str):
         offset += len(line)
 
 
-def enforce_development_gate(text: str, findings: list[Finding], must_reqs: set[str], traceability: Path | None) -> None:
+def table_cells(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def meaningful_decision_value(value: str) -> bool:
+    return bool(value and not UNACCEPTABLE_VALUE.fullmatch(value) and not PLACEHOLDER.search(value))
+
+
+def validate_decision_assurance(text: str, findings: list[Finding]) -> None:
+    """Require evidence-backed decision records before Development Ready."""
+    header: list[str] | None = None
+    rows: dict[str, list[str]] = {}
+    required_headers = {
+        "DA-ID",
+        "类型",
+        "决策/承诺对象",
+        "授权决策人",
+        "授权与来源证据",
+        "一致性/约束检查",
+        "可行性/估算证据",
+        "影响需求/验收/成本/工期",
+        "剩余风险/控制",
+        "有效期/复核触发",
+        "校验结论",
+    }
+    for line in text.splitlines():
+        if not line.lstrip().startswith("|"):
+            if header:
+                break
+            continue
+        cells = table_cells(line)
+        if required_headers.issubset(set(cells)):
+            header = cells
+            continue
+        if not header or all(re.fullmatch(r":?-+:?", cell) for cell in cells):
+            continue
+        if len(cells) != len(header):
+            continue
+        kind = cells[header.index("类型")].upper()
+        if kind in DECISION_TYPES:
+            if kind in rows:
+                findings.append(Finding("error", "duplicate_decision_assurance", f"{kind} 存在重复校验记录"))
+            rows[kind] = cells
+
+    if not header:
+        findings.append(Finding("error", "missing_decision_assurance_table", "Development Ready 前必须填写关键业务决策有效性校验表"))
+        return
+
+    for kind in sorted(DECISION_TYPES - set(rows)):
+        findings.append(Finding("error", "missing_decision_assurance", f"缺少 {kind} 校验记录"))
+
+    required_content = (
+        "决策/承诺对象",
+        "授权决策人",
+        "授权与来源证据",
+        "一致性/约束检查",
+        "可行性/估算证据",
+        "影响需求/验收/成本/工期",
+        "剩余风险/控制",
+        "有效期/复核触发",
+    )
+    for kind, row in rows.items():
+        verdict = row[header.index("校验结论")].upper()
+        if verdict in {"UNVERIFIED", "INVALID"}:
+            findings.append(Finding("error", "invalid_business_decision", f"{kind} 的校验结论为 {verdict}"))
+            continue
+        if verdict == "NOT_APPLICABLE":
+            if kind not in {"CUSTOMER_COMMITMENT", "RISK_ACCEPTANCE"}:
+                findings.append(Finding("error", "invalid_not_applicable_decision", f"{kind} 不允许标记 NOT_APPLICABLE"))
+            reason_cells = (row[header.index(name)] for name in required_content)
+            if not any(re.search(r"(?:N/A|NOT_APPLICABLE|不适用)\s*[：:,，-]\s*\S+", cell, re.IGNORECASE) for cell in reason_cells):
+                findings.append(Finding("error", "missing_not_applicable_reason", f"{kind} 标记 NOT_APPLICABLE 时必须写明理由"))
+            continue
+        if verdict != "VALIDATED":
+            findings.append(Finding("error", "invalid_decision_verdict", f"{kind} 的校验结论必须为 VALIDATED、UNVERIFIED、INVALID 或允许的 NOT_APPLICABLE"))
+            continue
+        missing = [name for name in required_content if not meaningful_decision_value(row[header.index(name)])]
+        if missing:
+            findings.append(Finding("error", "incomplete_decision_assurance", f"{kind} 缺少：{'、'.join(missing)}"))
+            continue
+
+        authority_evidence = row[header.index("授权与来源证据")]
+        feasibility = row[header.index("可行性/估算证据")]
+        impact = row[header.index("影响需求/验收/成本/工期")]
+        residual_risk = row[header.index("剩余风险/控制")]
+        review_trigger = row[header.index("有效期/复核触发")]
+        if kind == "CUSTOMER_COMMITMENT" and not re.search(
+            r"合同|SOW|订单|报价|变更单|签署|书面批准|授权记录", authority_evidence, re.IGNORECASE
+        ):
+            findings.append(Finding("error", "weak_customer_commitment_evidence", "客户承诺必须引用合同、SOW、订单、变更单或等价书面授权证据"))
+        if kind == "CORE_BUSINESS_RULE" and not (
+            re.search(r"\b(?:FR|BR)-[A-Z0-9-]+\b", impact, re.IGNORECASE)
+            and re.search(r"\bAC-(?:FR|BR)-[A-Z0-9-]+-\d+\b", impact, re.IGNORECASE)
+        ):
+            findings.append(Finding("error", "untraced_core_business_rule", "核心业务规则必须映射到需求 ID 与 AC"))
+        if kind == "TECH_ESTIMATE" and not (
+            re.search(r"\d+(?:\.\d+)?\s*(?:分钟|小时|人时|人日|人天|天|周|点|points?)", feasibility, re.IGNORECASE)
+            and re.search(r"区间|范围|置信|上下限|±|\d\s*(?:-|–|—|至|到)\s*\d", feasibility, re.IGNORECASE)
+        ):
+            findings.append(Finding("error", "weak_tech_estimate", "技术估算必须包含带单位的估算及区间或置信度"))
+        if kind == "RISK_ACCEPTANCE" and not (
+            re.search(r"剩余|残余", residual_risk)
+            and re.search(r"控制|缓解|补偿", residual_risk)
+            and re.search(r"\d{4}-\d{2}-\d{2}|变化|失效|发生|超过|触发|复核", review_trigger)
+        ):
+            findings.append(Finding("error", "weak_risk_acceptance", "风险接受必须明确剩余风险、控制措施及日期或复核触发条件"))
+
+
+def enforce_development_gate(text: str, findings: list[Finding], must_reqs: set[str], defined_acs: set[str], traceability: Path | None) -> None:
     fields = {match.group(1): match.group(2).strip().upper() for match in GATE_FIELD.finditer(text)}
     status = fields.get("PRD_STATUS")
     if status not in {"DEVELOPMENT_READY", "APPROVED"}:
@@ -175,6 +301,21 @@ def enforce_development_gate(text: str, findings: list[Finding], must_reqs: set[
     blockers = fields.get("BLOCKING_IDS")
     if blockers not in {"NONE", "无", "[]"}:
         findings.append(Finding("error", "open_blockers", f"BLOCKING_IDS 必须为空，当前为 {blockers or 'MISSING'}"))
+    if fields.get("DELIVERY_MODE") not in {"QUICK", "STANDARD", "HIGH_ASSURANCE"}:
+        findings.append(Finding("error", "invalid_delivery_mode", "DELIVERY_MODE 必须为 QUICK / STANDARD / HIGH_ASSURANCE"))
+    if fields.get("RISK_LEVEL") not in {"L0", "L1", "L2", "L3"}:
+        findings.append(Finding("error", "invalid_risk_level", "RISK_LEVEL 必须为 L0 / L1 / L2 / L3"))
+    baseline = fields.get("BASELINE_ID", "")
+    if not baseline or UNRESOLVED.search(baseline) or baseline in {"TBD", "NONE", "N/A"}:
+        findings.append(Finding("error", "missing_baseline_id", "Development Ready 前必须填写可定位的 BASELINE_ID"))
+    if fields.get("MAIN_FLOW_STATUS") not in {"APPROVED", "PASS"}:
+        findings.append(Finding("error", "main_flow_not_approved", "主流程必须经产品/业务负责人确认"))
+    main_flow_owner = fields.get("MAIN_FLOW_OWNER", "")
+    if not main_flow_owner or UNRESOLVED.search(main_flow_owner) or main_flow_owner in {"TBD", "NONE", "N/A"}:
+        findings.append(Finding("error", "missing_main_flow_owner", "主流程必须有具名 MAIN_FLOW_OWNER"))
+    if fields.get("DECISION_ASSURANCE") != "PASS":
+        findings.append(Finding("error", "decision_assurance_not_passed", "DECISION_ASSURANCE 必须为 PASS"))
+    validate_decision_assurance(text, findings)
     if not must_reqs:
         findings.append(Finding("error", "no_committed_scope", "Development Ready 前至少要有一条已确定为 Must/P0 的范围需求"))
 
@@ -185,10 +326,10 @@ def enforce_development_gate(text: str, findings: list[Finding], must_reqs: set[
     if traceability is None:
         findings.append(Finding("error", "traceability_required", "门禁模式必须通过 --traceability 提供追踪矩阵 CSV"))
     else:
-        validate_traceability(traceability, findings, must_reqs)
+        validate_traceability(traceability, findings, must_reqs, defined_acs)
 
 
-def validate_traceability(path: Path, findings: list[Finding], must_reqs: set[str]) -> None:
+def validate_traceability(path: Path, findings: list[Finding], must_reqs: set[str], defined_acs: set[str]) -> None:
     if not path.is_file():
         findings.append(Finding("error", "traceability_missing", f"追踪矩阵不存在：{path}"))
         return
@@ -217,10 +358,18 @@ def validate_traceability(path: Path, findings: list[Finding], must_reqs: set[st
         owner = get(row, "Owner", "负责人")
         status = get(row, "状态", "status")
         ready_status = status.upper() in {"已确认", "CONFIRMED", "READY", "APPROVED"}
-        if req in must_reqs and ac and test and owner and ready_status and not UNRESOLVED.search(ac + test + owner):
+        ac_matches_req = ac.startswith(f"AC-{req}-") and ac in defined_acs
+        source = get(row, "来源ID", "sourceid")
+        objective = get(row, "目标ID", "objectiveid")
+        gap = get(row, "GAPID")
+        evidence = get(row, "MVP证据ID", "evidenceid")
+        complete_origin = all((source, objective, gap, evidence))
+        if req in must_reqs and complete_origin and ac_matches_req and test and owner and ready_status and not UNRESOLVED.search(ac + test + owner):
             covered.add(req)
+        if req in must_reqs and ac and not ac_matches_req:
+            findings.append(Finding("error", "broken_ac_reference", f"追踪矩阵中的 {ac} 未在 PRD 定义或不属于 {req}"))
     for req_id in sorted(must_reqs - covered):
-        findings.append(Finding("error", "incomplete_traceability", f"Must 需求 {req_id} 未完整映射 AC 与 Test"))
+        findings.append(Finding("error", "incomplete_traceability", f"Must 需求 {req_id} 未完整映射来源、目标、GAP、MVP 证据、AC、Test、Owner 与状态"))
 
 
 def main() -> int:

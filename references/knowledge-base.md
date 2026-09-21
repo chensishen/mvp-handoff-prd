@@ -1,5 +1,7 @@
 # 知识库与采用原则
 
+> 最近复核：2026-09-20。标准版本变化时重新核对采用规则，不以本页摘要替代权威原文。
+
 本知识库保存“来源 + 对本技能的决策影响”，不复制大段原文。使用时优先打开最新官方版本，并记录访问日期。
 
 ## 需求工程与 PRD
@@ -33,8 +35,26 @@
 - [ISTQB Acceptance Testing Syllabus](https://istqb.org/wp-content/uploads/2024/11/ISTQB-CT-AcT_Syllabus_v1.0_2019.pdf)：用于验收标准、追踪、UAT、合同和监管验收的结构化设计。
 - [ISTQB CTFL v4.0.1](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf)：用于等价类、边界值、决策表、状态迁移和风险测试。
 
+## 专家团与独立评审
+
+- [RAND: Delphi 方法的应用说明](https://www.rand.org/content/dam/rand/pubs/conf_proceedings/2005/CF170.pdf)：匿名独立作答、迭代和受控反馈可降低权威主导、从众和公开立场固化。本技能采用其“独立首轮 + 受控反馈”思想，但对定性 PRD 评审不强求统计聚合或多轮收敛。
+- [NASA Systems Engineering Handbook](https://science.nasa.gov/wp-content/uploads/2023/04/nasa_systems_engineering_handbook_0.pdf)：独立技术评审需有明确职权范围与成功标准。本技能据此要求先定义评审契约、入口材料和门禁结论。
+- [NASA Software Peer Reviews and Inspections](https://swehb.nasa.gov/pages/viewpage.action?navigatingVersions=true&pageId=98369550)：同行评审需要适合产品的技术背景、入口条件和成功条件。本技能据此要求专家角色与明确问题匹配，而非按人数凑团。
+- [GOV.UK: What each role does in a service team](https://www.gov.uk/service-manual/the-team/what-each-role-does-in-service-team)：数字服务需要跨产品、开发、架构、运维、测试等角色协作，并按规模补充专项能力。本技能采用核心三视角、按风险增补专家的方式。
+
 ## 本项目原始资料
 
-- `AI写PRD指南.md`：采用“归集 → 主流程拆解 → 漏洞排查 → 定稿”、不脑补、待确认标记、人工复核、敏感信息脱敏。
+- `AI写PRD指南.md`：采用“归集 → 主流程拆解 → 漏洞排查 → 定稿”、不脑补、待确认标记、人工复核、敏感信息脱敏。本技能将其升级为 CP-A–D 可审计检查点，并强制主流程具名 Owner；不采用“没有 MVP 取证就直接进入通用四步法”。
 - `PRD怎么写.md`：采用基础信息、需求概述、流程规则、详细功能、非功能、验收、依赖风险的通用骨架。
 - 本技能的主要增强：MVP 逆向审计、证据分级、当前—目标差距、外部/内部双入口、需求追踪、UAT/OAT、交接/发布门禁与变更控制。
+
+## GitHub 开源方法参考
+
+- [GitHub Spec Kit](https://github.com/github/spec-kit)：采用规格—计划—任务—实现—收敛的阶段工件思路与现有项目入口；不用其功能规格取代客户授权和 MVP 审计。
+- [OpenSpec](https://github.com/Fission-AI/OpenSpec)：采用 proposal/spec/design/tasks 的增量变更与 Brownfield 思路；增加商务、验收、签署和生效控制。
+- [BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD)：采用按复杂度选择规划深度的思路，形成 QUICK / STANDARD / HIGH_ASSURANCE；不默认启动所有角色。
+- [PRP](https://github.com/Wirasm/prp) 与 [Agent OS](https://github.com/buildermethods/agent-os)：采用代码库上下文、精确路径、现有模式和可执行验证命令；不把当前代码习惯当成业务需求。
+- [cc-sdd](https://github.com/gotalab/cc-sdd)：采用边界/依赖标注、非原作者独立复核与失败诊断。
+- [Doorstop](https://github.com/doorstop-dev/doorstop)：采用稳定 ID、断链/孤立项校验和版本化追踪；不强制所有小项目采用完整建模工具。
+
+详细对比与不采用理由见 [github-benchmark.md](github-benchmark.md)。
