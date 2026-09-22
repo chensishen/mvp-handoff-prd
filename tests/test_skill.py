@@ -451,11 +451,24 @@ class PackageInitializerTests(unittest.TestCase):
 
 
 class StructuralLintTests(unittest.TestCase):
-    def test_bundled_template_is_a_valid_draft_with_warnings(self):
+    def test_bundled_template_is_a_valid_draft_without_fill_in_warnings(self):
         template = (SKILL_DIR / "assets" / "交接型PRD模板.md").read_text(encoding="utf-8")
         findings = VALIDATOR.lint(template)
-        self.assertFalse([item for item in findings if item.severity == "error"])
-        self.assertIn("unresolved_placeholder", codes(findings))
+        self.assertEqual(findings, [])
+
+    def test_generated_scaffold_has_no_fill_in_warnings_but_edited_draft_does(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = Path(temp_dir) / "handoff"
+            subprocess.run(
+                [sys.executable, str(INITIALIZER_PATH), str(output), "--project", "真实项目", "--mode", "HIGH_ASSURANCE"],
+                check=True,
+                capture_output=True,
+            )
+            prd = (output / "01-交接型PRD.md").read_text(encoding="utf-8")
+            self.assertEqual(VALIDATOR.lint(prd), [])
+            edited = prd.replace("- 目标行为：", "- 目标行为：待确认", 1)
+            self.assertIn("missing_target_behavior", codes(VALIDATOR.lint(edited)))
+            self.assertIn("unresolved_semantics", codes(VALIDATOR.lint(edited)))
 
     def test_missing_source_and_goal_are_errors(self):
         document = valid_prd().replace("## 1. 来源与目标", "## 1. 项目背景")

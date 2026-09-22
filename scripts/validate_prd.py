@@ -56,6 +56,14 @@ DECISION_TYPES = {
 }
 
 UNACCEPTABLE_VALUE = re.compile(r"^(?:TBD|NONE|N/?A|-|待确认|未提供|未知|无法验证)?$", re.IGNORECASE)
+SCAFFOLD_WARNING_CODES = {
+    "empty_field",
+    "missing_requirement_owner",
+    "missing_requirement_source",
+    "missing_target_behavior",
+    "unresolved_placeholder",
+    "unresolved_semantics",
+}
 
 
 def line_number(text: str, offset: int) -> int:
@@ -87,6 +95,22 @@ def nonempty_field(block: str, names: tuple[str, ...]) -> bool:
         return False
     value = match.group(1).strip()
     return bool(value and not UNRESOLVED.search(value) and value not in {"-", "N/A"})
+
+
+def is_pristine_scaffold(text: str) -> bool:
+    """Recognize only an untouched bundled PRD template or initializer copy."""
+    title = re.match(r"# (.+) 产品需求文档（MVP 交接型 PRD）\n", text)
+    if not title:
+        return False
+    fields = {match.group(1): match.group(2).strip() for match in GATE_FIELD.finditer(text)}
+    mode, risk = fields.get("DELIVERY_MODE"), fields.get("RISK_LEVEL")
+    if mode not in {"QUICK", "STANDARD", "HIGH_ASSURANCE"} or risk not in {"L0", "L1", "L2", "L3"}:
+        return False
+    template = (Path(__file__).resolve().parent.parent / "assets" / "交接型PRD模板.md").read_text(encoding="utf-8")
+    expected = template.replace("<项目名称>", title.group(1))
+    expected = expected.replace("DELIVERY_MODE: STANDARD", f"DELIVERY_MODE: {mode}")
+    expected = expected.replace("RISK_LEVEL: L1", f"RISK_LEVEL: {risk}")
+    return text == expected
 
 
 def lint(text: str, gate: str | None = None, traceability: Path | None = None) -> list[Finding]:
@@ -172,6 +196,8 @@ def lint(text: str, gate: str | None = None, traceability: Path | None = None) -
 
     if gate == "development-ready":
         enforce_development_gate(text, findings, must_reqs, defined_acs, traceability)
+    elif is_pristine_scaffold(text):
+        findings = [item for item in findings if item.code not in SCAFFOLD_WARNING_CODES]
     return findings
 
 

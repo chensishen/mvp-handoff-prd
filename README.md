@@ -91,6 +91,8 @@ python3 scripts/init_handoff_package.py ./handoff \
 python3 scripts/validate_prd.py ./handoff/01-交接型PRD.md
 ```
 
+原样初始化的空白 PRD 不会产生“待填写”预警；编辑后，未填的 Owner、来源、目标行为等仍会提示。开发门禁始终检查全部缺项，不因模板身份放行。
+
 候选 Development Ready 结构预检：
 
 ```bash

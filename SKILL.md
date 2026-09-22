@@ -54,6 +54,8 @@ description: Audit an existing MVP and turn customer or internal project needs i
 
 ### 4. 编写可实现规格
 
+生成的 PRD 采用常规产品需求文档的阅读顺序：文档控制、背景与目标、范围及功能清单、角色权限、流程与规则、详细需求、数据与非功能、错误提示、验收、依赖风险和附件；MVP 基线、差距、决策校验和门禁作为交接型补充保留。功能清单只作索引，验收正文写在对应 FR 下，追踪矩阵只维护映射，避免三处重复。使用 [assets/交接型PRD模板.md](assets/交接型PRD模板.md) 作为正文格式基准。
+
 使用稳定 ID：`OBJ` 目标、`FR` 功能、`BR` 业务规则、`NFR` 非功能、`API` 接口、`DATA` 数据、`SEC` 安全、`OBS` 可观测性、`OPS` 发布运维、`AC` 验收。
 
 每条需求至少包含：来源/理由、MVP 现状、目标行为、优先级、前置与依赖、异常/边界、验收标准、状态。要求应原子、明确、必要、可行、可验证；避免“体验良好”“尽量快”“支持常见情况”等措辞。
@@ -98,7 +100,7 @@ description: Audit an existing MVP and turn customer or internal project needs i
 - 事实附来源；代码证据尽量给文件和行号；观察附版本/时间/环境。
 - 不删除待确认项来制造“完整”；所有未决项进入统一日志。
 - 文档中的日期用绝对日期，版本可追溯，变更必须记录影响的需求 ID。
-- 草稿运行 `python3 <技能目录>/scripts/validate_prd.py <PRD.md>`。单文档的 `--gate development-ready` 只做候选结构预检，不能凭自填 PASS 宣称就绪。包级门禁依次运行 `validate_package.py <目录> --gate development-ready / acceptance-ready / handoff-accepted`；正式签署只保存在研发实施与发布清单，避免 PRD 与清单双重签署。HIGH_ASSURANCE 或 L2/L3 缺专家团记录、目录混放两种布局、任何校验错误或未关闭阻塞都禁止过门。
+- 草稿运行 `python3 <技能目录>/scripts/validate_prd.py <PRD.md>`。未修改的初始化模板不会因示例占位字段报警；开始填写后缺项仍会提示。单文档的 `--gate development-ready` 只做候选结构预检，不能凭自填 PASS 宣称就绪。包级门禁依次运行 `validate_package.py <目录> --gate development-ready / acceptance-ready / handoff-accepted`；正式签署只保存在研发实施与发布清单，避免 PRD 与清单双重签署。HIGH_ASSURANCE 或 L2/L3 缺专家团记录、目录混放两种布局、任何校验错误或未关闭阻塞都禁止过门。
 
 权威参考和采用理由见 [references/knowledge-base.md](references/knowledge-base.md)。
 
