@@ -107,6 +107,14 @@ def valid_prd() -> str:
     ).strip() + "\n"
 
 
+def with_chinese_status_footer(document: str) -> str:
+    old_fields = document[document.index("PRD_STATUS:"):document.index("## 0. 文档控制")]
+    footer = "\n## 20. 状态与门禁摘要\n\n| 字段 | 当前值 |\n|---|---|\n"
+    for label, key in VALIDATOR.GATE_LABELS.items():
+        footer += f"| {label} | {VALIDATOR.gate_fields(document)[key]} |\n"
+    return document.replace(old_fields, "") + footer
+
+
 def write_trace(path: Path, *, test_id: str = "TEST-001", owner: str = "王五", status: str = "已确认", evidence: str = "") -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
@@ -213,8 +221,10 @@ class PackageInitializerTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             prd = (output / "01-交接型PRD.md").read_text(encoding="utf-8")
-            self.assertIn("DELIVERY_MODE: HIGH_ASSURANCE", prd)
-            self.assertIn("RISK_LEVEL: L2", prd)
+            self.assertIn("| 交付模式 | HIGH_ASSURANCE |", prd)
+            self.assertIn("| 风险等级 | L2 |", prd)
+            self.assertTrue(prd.rstrip().endswith("| 阻塞项编号 | TBD |"))
+            self.assertNotIn("DELIVERY_MODE:", prd)
             self.assertTrue((output / "04-专家团评审记录.md").is_file())
 
     def test_l2_or_l3_risk_always_adds_expert_panel(self):
@@ -506,6 +516,16 @@ class DevelopmentReadyGateTests(unittest.TestCase):
             findings = VALIDATOR.lint(valid_prd(), "development-ready", trace)
             self.assertEqual(findings, [])
 
+    def test_chinese_status_footer_passes_same_gate_as_legacy_fields(self):
+        document = with_chinese_status_footer(valid_prd())
+        self.assertNotIn("PRD_STATUS:", document)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            trace = Path(temp_dir) / "trace.csv"
+            write_trace(trace)
+            self.assertEqual(VALIDATOR.lint(document, "development-ready", trace), [])
+            blocked = document.replace("| G1 基线可信 | PASS |", "| G1 基线可信 | FAIL |")
+            self.assertIn("gate_not_passed", codes(VALIDATOR.lint(blocked, "development-ready", trace)))
+
     def test_draft_template_fails_gate(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             trace = Path(temp_dir) / "trace.csv"
@@ -689,6 +709,17 @@ class CrossArtifactPackageTests(unittest.TestCase):
                 )
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("missing_expert_panel", result.stdout)
+
+    def test_chinese_footer_high_risk_package_requires_expert_panel(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            package = Path(temp_dir) / "package"
+            write_valid_package(package)
+            prd = package / "01-交接型PRD.md"
+            document = with_chinese_status_footer(prd.read_text(encoding="utf-8"))
+            prd.write_text(document.replace("| 风险等级 | L1 |", "| 风险等级 | L2 |"), encoding="utf-8")
+            result = subprocess.run([sys.executable, str(PACKAGE_VALIDATOR_PATH), str(package)], text=True, capture_output=True, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("missing_expert_panel", result.stdout)
 
     def test_expert_panel_cannot_pass_with_only_a_conclusion(self):
         with tempfile.TemporaryDirectory() as temp_dir:

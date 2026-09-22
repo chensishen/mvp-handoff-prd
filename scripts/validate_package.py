@@ -264,11 +264,10 @@ def validate(package: Path, gate: str = "development-ready") -> list[str]:
         if not has_gate_signoff(texts["handoff"], "Handoff Accepted"):
             problems.append("missing_gate_signoff: Handoff Accepted 需三方具名签署与日期")
 
-    delivery_mode = re.search(r"^DELIVERY_MODE\s*:\s*(\S+)", texts["prd"], re.MULTILINE | re.IGNORECASE)
-    risk_level = re.search(r"^RISK_LEVEL\s*:\s*(L[0-3])", texts["prd"], re.MULTILINE | re.IGNORECASE)
+    prd_fields = validator.gate_fields(texts["prd"])
     panel_required = (
-        bool(delivery_mode and delivery_mode.group(1).upper() == "HIGH_ASSURANCE")
-        or bool(risk_level and risk_level.group(1).upper() in {"L2", "L3"})
+        prd_fields.get("DELIVERY_MODE", "").upper() == "HIGH_ASSURANCE"
+        or prd_fields.get("RISK_LEVEL", "").upper() in {"L2", "L3"}
     )
     panel_path = package / ("04-专家团评审记录.md" if layout == "compact" else "08-专家团评审记录.md")
     if panel_required and not panel_path.is_file():

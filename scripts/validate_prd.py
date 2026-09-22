@@ -43,10 +43,24 @@ AC_DEFINITION = re.compile(r"^\s*(AC-(FR-[A-Z0-9-]+)-\d+)\s*$", re.MULTILINE)
 VAGUE = re.compile(r"体验良好|体验流畅|响应快|尽量快|安全可靠|稳定可靠|支持常见|兼容主流|实时同步|正常运行")
 PLACEHOLDER = re.compile(r"<(?![!/?])[^>\n]+>|\[TODO\]|\bTBD\b|【待确认】")
 UNRESOLVED = re.compile(r"待确认|未决|待指定|未提供|无法验证|未知")
-GATE_FIELD = re.compile(
+LEGACY_GATE_FIELD = re.compile(
     r"^(PRD_STATUS|DELIVERY_MODE|RISK_LEVEL|BASELINE_ID|G1_BASELINE|G2_SCOPE|G3_DEVELOPMENT_READY|MAIN_FLOW_STATUS|MAIN_FLOW_OWNER|DECISION_ASSURANCE|BLOCKING_IDS)\s*:\s*(.*?)\s*$",
     re.MULTILINE,
 )
+GATE_LABELS = {
+    "文档状态": "PRD_STATUS",
+    "交付模式": "DELIVERY_MODE",
+    "风险等级": "RISK_LEVEL",
+    "基线标识": "BASELINE_ID",
+    "G1 基线可信": "G1_BASELINE",
+    "G2 范围已定": "G2_SCOPE",
+    "G3 可进入开发": "G3_DEVELOPMENT_READY",
+    "主流程确认状态": "MAIN_FLOW_STATUS",
+    "主流程负责人": "MAIN_FLOW_OWNER",
+    "关键决策校验": "DECISION_ASSURANCE",
+    "阻塞项编号": "BLOCKING_IDS",
+}
+STATUS_SECTION = re.compile(r"^##\s+(?:\d+\.\s*)?状态与门禁摘要\s*$", re.MULTILINE)
 
 DECISION_TYPES = {
     "CUSTOMER_COMMITMENT",
@@ -97,19 +111,33 @@ def nonempty_field(block: str, names: tuple[str, ...]) -> bool:
     return bool(value and not UNRESOLVED.search(value) and value not in {"-", "N/A"})
 
 
+def gate_fields(text: str) -> dict[str, str]:
+    """Read the Chinese status footer, retaining old key-value PRDs for compatibility."""
+    fields = {match.group(1): match.group(2).strip() for match in LEGACY_GATE_FIELD.finditer(text)}
+    section = STATUS_SECTION.search(text)
+    if section:
+        for line in text[section.end():].splitlines():
+            if line.startswith("## "):
+                break
+            cells = table_cells(line) if line.startswith("|") else []
+            if len(cells) == 2 and cells[0] in GATE_LABELS:
+                fields[GATE_LABELS[cells[0]]] = cells[1]
+    return fields
+
+
 def is_pristine_scaffold(text: str) -> bool:
     """Recognize only an untouched bundled PRD template or initializer copy."""
     title = re.match(r"# (.+) 产品需求文档（MVP 交接型 PRD）\n", text)
     if not title:
         return False
-    fields = {match.group(1): match.group(2).strip() for match in GATE_FIELD.finditer(text)}
+    fields = gate_fields(text)
     mode, risk = fields.get("DELIVERY_MODE"), fields.get("RISK_LEVEL")
     if mode not in {"QUICK", "STANDARD", "HIGH_ASSURANCE"} or risk not in {"L0", "L1", "L2", "L3"}:
         return False
     template = (Path(__file__).resolve().parent.parent / "assets" / "交接型PRD模板.md").read_text(encoding="utf-8")
     expected = template.replace("<项目名称>", title.group(1))
-    expected = expected.replace("DELIVERY_MODE: STANDARD", f"DELIVERY_MODE: {mode}")
-    expected = expected.replace("RISK_LEVEL: L1", f"RISK_LEVEL: {risk}")
+    expected = expected.replace("| 交付模式 | STANDARD |", f"| 交付模式 | {mode} |")
+    expected = expected.replace("| 风险等级 | L1 |", f"| 风险等级 | {risk} |")
     return text == expected
 
 
@@ -317,7 +345,7 @@ def validate_decision_assurance(text: str, findings: list[Finding]) -> None:
 
 
 def enforce_development_gate(text: str, findings: list[Finding], must_reqs: set[str], defined_acs: set[str], traceability: Path | None) -> None:
-    fields = {match.group(1): match.group(2).strip().upper() for match in GATE_FIELD.finditer(text)}
+    fields = {name: value.upper() for name, value in gate_fields(text).items()}
     status = fields.get("PRD_STATUS")
     if status not in {"DEVELOPMENT_READY", "APPROVED"}:
         findings.append(Finding("error", "invalid_prd_status", "门禁模式要求 PRD_STATUS 为 DEVELOPMENT_READY 或 APPROVED"))

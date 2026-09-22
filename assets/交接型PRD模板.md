@@ -2,19 +2,6 @@
 
 > 填写原则：用真实项目材料替换占位；未拍板事项保留为待确认并登记决策人。正文采用常规 PRD 的目标、范围、功能、流程、规则、验收结构；MVP 证据与交接门禁是本模板的补充，不替代产品需求。
 
-<!-- 以下字段供门禁校验器读取；值只使用列出的英文枚举。 -->
-PRD_STATUS: DRAFT
-DELIVERY_MODE: STANDARD
-RISK_LEVEL: L1
-BASELINE_ID: TBD
-G1_BASELINE: NOT_EVALUATED
-G2_SCOPE: NOT_EVALUATED
-G3_DEVELOPMENT_READY: NOT_EVALUATED
-MAIN_FLOW_STATUS: NOT_EVALUATED
-MAIN_FLOW_OWNER: TBD
-DECISION_ASSURANCE: NOT_EVALUATED
-BLOCKING_IDS: TBD
-
 ## 0. 文档控制
 
 | 项目 | 内容 |
@@ -25,7 +12,6 @@ BLOCKING_IDS: TBD
 | 作者 / PRD Owner |  |
 | 阅读对象 | 产品、业务、C 技术负责人、开发、QA、UI、运维等适用角色 |
 | 创建日期 | YYYY-MM-DD |
-| 文档状态 | 草稿 / 评审中 / 已批准（与上方 PRD_STATUS 保持一致） |
 | 关联材料 | 需求原文、原型/UI、接口说明、MVP 仓库或制品的版本化链接 |
 | 来源类型 | 外部客户 / 内部项目 / 混合 |
 | 需求提出者 |  |
@@ -36,7 +22,6 @@ BLOCKING_IDS: TBD
 | QA / 验收人 |  |
 | 数据 Owner / 验收签署人 |  |
 | 运维/安全/数据 |  |
-| 基线 Commit / Build |  |
 | 目标版本/日期 |  |
 | 最后更新 | YYYY-MM-DD |
 
@@ -347,9 +332,9 @@ And <系统状态、数据、事件、日志或指标结果>
 | 原型 / UI 规范 |  |  |  |  |
 | API / 数据契约 |  |  |  |  |
 
-## 19. 写作检查点与门禁记录
+## 19. 写作检查点记录
 
-本表记录评审过程和门禁结论，不作为重复签署源；正式具名签署只保存在 `03-研发实施与发布清单.md`。
+本表记录写作阶段的评审过程；G1–G3 的当前结论只在文末状态摘要维护，正式具名签署只保存在 `03-研发实施与发布清单.md`。
 
 | 门禁 | 结论 | 未通过项 | 评审人 | 日期 |
 |---|---|---|---|---|
@@ -357,9 +342,6 @@ And <系统状态、数据、事件、日志或指标结果>
 | CP-B Main Flow Approved |  |  |  |  |
 | CP-C Rules Decided |  |  |  |  |
 | CP-D Spec Compiled |  |  |  |  |
-| 基线可信 |  |  |  |  |
-| 范围已定 |  |  |  |  |
-| Development Ready |  |  |  |  |
 
 ### 提交评审前检查
 
@@ -369,3 +351,21 @@ And <系统状态、数据、事件、日志或指标结果>
 - [ ] 权限矩阵、流程、业务规则、错误提示、数据副作用和 AC 相互一致。
 - [ ] 成功指标与 NFR 数字有基线、口径和确认状态；不含未经授权的承诺。
 - [ ] 所有阻塞待确认项有具名决策人；需求—AC—Test 在追踪矩阵中闭合。
+
+## 20. 状态与门禁摘要
+
+本表仅汇总当前状态，不代替第 17 章的决策依据或 `03-研发实施与发布清单.md` 中的具名签署。状态值保留稳定枚举供校验器读取；每次变更须有证据，不能仅改 `FAIL` 为 `PASS`。
+
+| 字段 | 当前值 |
+|---|---|
+| 文档状态 | DRAFT |
+| 交付模式 | STANDARD |
+| 风险等级 | L1 |
+| 基线标识 | TBD |
+| G1 基线可信 | NOT_EVALUATED |
+| G2 范围已定 | NOT_EVALUATED |
+| G3 可进入开发 | NOT_EVALUATED |
+| 主流程确认状态 | NOT_EVALUATED |
+| 主流程负责人 | TBD |
+| 关键决策校验 | NOT_EVALUATED |
+| 阻塞项编号 | TBD |

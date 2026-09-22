@@ -61,8 +61,8 @@ def set_prd_mode(path: Path, mode: str, risk_level: str) -> None:
     if "PRD" not in path.name:
         return
     text = path.read_text(encoding="utf-8")
-    text = text.replace("DELIVERY_MODE: STANDARD", f"DELIVERY_MODE: {mode}")
-    text = text.replace("RISK_LEVEL: L1", f"RISK_LEVEL: {risk_level}")
+    text = text.replace("| 交付模式 | STANDARD |", f"| 交付模式 | {mode} |")
+    text = text.replace("| 风险等级 | L1 |", f"| 风险等级 | {risk_level} |")
     path.write_text(text, encoding="utf-8")
 
 
